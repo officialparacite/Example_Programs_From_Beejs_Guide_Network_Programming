@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     }
     struct addrinfo hints, *result, *resultPointer;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET6;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
@@ -29,15 +29,23 @@ int main(int argc, char* argv[]) {
 
     int sockFd;
     for (resultPointer = result; resultPointer; resultPointer = resultPointer->ai_next) {
-        if (resultPointer->ai_family != AF_INET6) continue;
 
         sockFd = socket(resultPointer->ai_family, resultPointer->ai_socktype, resultPointer->ai_protocol);
 
         if (sockFd == -1) continue;
 
         int no = 0;
-        if (setsockopt(sockFd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no)) == -1) {
-            perror("setsockopt IPV6_V6ONLY");
+        if (resultPointer->ai_family == AF_INET6) {
+            if (setsockopt(sockFd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no)) == -1) {
+                perror("setsockopt IPV6_V6ONLY");
+                close(sockFd);
+                continue;
+            }
+        }
+
+        int yes = 1;
+        if (setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+            perror("setsockopt SO_REUSEADDR");
             close(sockFd);
             continue;
         }
