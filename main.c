@@ -1,44 +1,45 @@
 #include <netinet/in.h>
-#include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
+#include <stdio.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 
 int main(int argc, char* argv[]){
     if (argc != 2){
-        fprintf(stderr, "usage error");
+        fprintf(stderr, "usage error: %s <example.com>", argv[0] );
         return 1;
     }
-    int status;
-    char ipstr[INET6_ADDRSTRLEN];
+
     struct addrinfo hints, *res, *p;
-    memset(&hints, 0, sizeof(hints));
+    memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
+    int status;
+
     if ((status = getaddrinfo(argv[1], NULL, &hints, &res)) != 0){
-        fprintf(stderr, "getaddrinfo error");
+        fprintf(stderr, "Error getting address info: %s\n", gai_strerror(status));
         return 1;
     }
-    printf("IP Address for %s is:\n\n", argv[1]);
-    for (p = res; p != NULL; p = p->ai_next){
-        void *addr;
-        char *ipver;
+    for (p = res; p != NULL; p = p->ai_next) {
+        void *address;
+        char *ip_ver;
+        char ipstr[INET6_ADDRSTRLEN];
 
         if (p->ai_family == AF_INET) {
             struct sockaddr_in *ipv4 = (struct sockaddr_in *) p->ai_addr;
-            addr = &(ipv4->sin_addr);
-            ipver = "IPV4";
-        } 
-        else {
-            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) p->ai_addr;
-            addr = &(ipv6->sin6_addr);
-            ipver = "IPV6";
+            address = &(ipv4->sin_addr);
+            ip_ver = "ipv4";
         }
-        inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
-        printf("  %s: %s\n", ipver, ipstr);
+        else if (p->ai_family == AF_INET6){
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) p->ai_addr;
+            address = &(ipv6->sin6_addr);
+            ip_ver = "ipv6";
+        }
+        inet_ntop(p->ai_family, address, ipstr, sizeof(ipstr));
+        printf("%s: %s\n", ip_ver, ipstr);
     }
     freeaddrinfo(res);
     return 0;
