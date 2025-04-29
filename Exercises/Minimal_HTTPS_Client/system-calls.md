@@ -3,19 +3,27 @@
 
 # System Calls Needed for a Simple Client
 
-- `socket()` / `connect()`
-- `SSL_library_init()`
-- `SSL_load_error_strings()`
-- `SSL_CTX_new()`
-- `SSL_new()`
-- `SSL_set_fd()`
-- `SSL_connect()`
-- `SSL_write()`
-- `SSL_read()`
-- `SSL_shutdown()`
-- `SSL_free()`
-- `SSL_CTX_free()`
-- `close()`
+- getaddrinfo()                       // DNS resolution
+- socket()                            // Create socket
+- connect()                           // TCP connect
+
+- SSL_library_init()                  // (Deprecated)
+- SSL_load_error_strings()            // (Deprecated)
+
+- SSL_CTX_new()                       // Create SSL context
+- SSL_CTX_set_verify()                // (Recommended) Enable certificate verification
+- SSL_CTX_set_default_verify_paths()  // Load system CA certs
+
+- SSL_new()                           // Create SSL object
+- SSL_set_fd()                        // Attach socket to SSL object
+- SSL_connect()                       // TLS handshake
+
+- SSL_write() / SSL_read()            // Encrypted communication
+
+- SSL_shutdown()                      // Clean shutdown
+- SSL_free()                          // Free SSL object
+- SSL_CTX_free()                      // Free context
+- close()                             // Close socket
 
 ---
 
@@ -225,12 +233,68 @@ So, **`TLS_client_method()`** is just returning a pointer to that structure. Whe
 ### Code Example:
 
 ```c
-// 1. Create context (settings)
+// 1. Create SSL context (settings for TLS connections)
 SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
 
-// 2. Create SSL connection using the context
+// 2. Set context to verify server certs
+SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+SSL_CTX_set_default_verify_paths(ctx);
+
+// 3. Create a new SSL connection object using the context
 SSL *ssl = SSL_new(ctx);
+
 ```
+---
+
+### I know, I know — I said it only takes two functions, but hear me out.
+
+---
+
+## **What is TLS (or HTTPS) doing?**
+
+When your C program connects to a site like `https://example.com`, it does 2 things:
+
+1. **Encrypts** the connection — so nobody can read the data you're sending/receiving.
+2. **Authenticates** the server — to make sure you're really talking to *example.com*, not an attacker pretending to be it.
+
+---
+
+## Why is server authentication important?
+
+Imagine someone creates a fake `example.com` server and tricks you (via DNS poisoning, public Wi-Fi, etc.) into connecting to it. Without authentication, **your program will happily connect to the fake server**, and send data (like passwords) to the attacker.
+
+To prevent this, the real server presents an **SSL certificate**. This certificate says:
+> *"I am example.com, and a trusted Certificate Authority (like Let's Encrypt or DigiCert) vouches for me."*
+
+---
+
+## Certificate Authorities (CAs)
+
+These are third-party companies you trust (built into your OS). They digitally **sign** certificates for real websites.
+
+Your system has a list of CA public keys, usually stored in:
+- `/etc/ssl/certs/`
+- `/etc/pki/tls/certs/`
+
+These are used to **verify** that the server’s certificate is legitimate.
+
+---
+
+## So what do these lines do?
+
+### `SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);`
+Tells OpenSSL:
+> *"Check the server’s certificate. Don’t just trust anything."*
+
+Without this, OpenSSL will **not check** the certificate. You’re encrypting the connection, but **to potentially the wrong server** — which is useless security-wise.
+
+---
+
+### `SSL_CTX_set_default_verify_paths(ctx);`
+Tells OpenSSL:
+> *"Use the system’s built-in list of trusted certificate authorities to verify the server."*
+
+Without this, OpenSSL doesn't know **who to trust**, and **certificate verification fails** — even for real websites.
 
 ---
 
