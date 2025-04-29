@@ -182,6 +182,8 @@ By calling `SSL_load_error_strings`, any SSL-related error codes encountered can
 
 Note that `SSL_library_init` is often used alongside `SSL_load_error_strings` in OpenSSL applications to initialize the SSL/TLS library and error strings.
 
+## Note: In OpenSSL 1.1.0 and later, SSL_load_error_strings() is no longer required, as initialization is handled automatically during the first use of OpenSSL functions. However, it is safe to include OpenSSL headers in your code regardless of the OpenSSL version, as long as you are using the correct version for your system. OpenSSL's headers are designed to be included in your source files, and they do not cause any issues by simply being included, even in the case where manual initialization is not required (OpenSSL 1.1.0 and later).
+
 ---
 
 ---
