@@ -17,50 +17,78 @@ int main(int argc, char *argv[]) {
     const char *hostname = argv[1];
     const char *portnum = "443";
 
-    // Initialize OpenSSL
-    SSL_library_init();
-    SSL_load_error_strings();
-    OpenSSL_add_all_algorithms();
-
-    // Resolve hostname
+    // --- Resolve hostname ---
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET; // IPv4
+    hints.ai_family = AF_INET; // IPv4 only
     hints.ai_socktype = SOCK_STREAM;
+
     if (getaddrinfo(hostname, portnum, &hints, &res) != 0) {
         perror("getaddrinfo");
         return 1;
     }
 
-    // Create socket and connect
+    // --- Create socket and connect ---
     int sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (sockfd < 0) {
         perror("socket");
+        freeaddrinfo(res);
         return 1;
     }
+
     if (connect(sockfd, res->ai_addr, res->ai_addrlen) != 0) {
         perror("connect");
         close(sockfd);
+        freeaddrinfo(res);
         return 1;
     }
 
-    // Setup SSL
+    // --- Set up SSL context ---
     SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
     if (!ctx) {
         fprintf(stderr, "SSL_CTX_new() failed\n");
-        return 1;
-    }
-    SSL *ssl = SSL_new(ctx);
-    SSL_set_fd(ssl, sockfd);
-    if (SSL_connect(ssl) != 1) {
-        fprintf(stderr, "SSL_connect() failed\n");
-        SSL_free(ssl);
-        SSL_CTX_free(ctx);
+        ERR_print_errors_fp(stderr);
         close(sockfd);
+        freeaddrinfo(res);
         return 1;
     }
 
-    // Build and send HTTP request
+    // --- Verify server certificate using system CA store ---
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+    if (!SSL_CTX_set_default_verify_paths(ctx)) {
+        fprintf(stderr, "Failed to set default verify paths\n");
+        ERR_print_errors_fp(stderr);
+        SSL_CTX_free(ctx);
+        close(sockfd);
+        freeaddrinfo(res);
+        return 1;
+    }
+
+    // --- Create SSL object and attach to socket ---
+    SSL *ssl = SSL_new(ctx);
+    if (!ssl) {
+        fprintf(stderr, "SSL_new() failed\n");
+        ERR_print_errors_fp(stderr);
+        SSL_CTX_free(ctx);
+        close(sockfd);
+        freeaddrinfo(res);
+        return 1;
+    }
+
+    SSL_set_fd(ssl, sockfd);
+
+    // --- Perform TLS handshake ---
+    if (SSL_connect(ssl) != 1) {
+        fprintf(stderr, "SSL_connect() failed\n");
+        ERR_print_errors_fp(stderr);
+        SSL_free(ssl);
+        SSL_CTX_free(ctx);
+        close(sockfd);
+        freeaddrinfo(res);
+        return 1;
+    }
+
+    // --- Send HTTP GET request ---
     char request[1024];
     snprintf(request, sizeof(request),
              "GET / HTTP/1.1\r\n"
@@ -70,14 +98,14 @@ int main(int argc, char *argv[]) {
 
     SSL_write(ssl, request, strlen(request));
 
-    // Read and print the response
+    // --- Read and print HTTP response ---
     char buf[4096];
     int bytes;
     while ((bytes = SSL_read(ssl, buf, sizeof(buf))) > 0) {
         fwrite(buf, 1, bytes, stdout);
     }
 
-    // Cleanup
+    // --- Clean up ---
     SSL_shutdown(ssl);
     SSL_free(ssl);
     SSL_CTX_free(ctx);
@@ -86,4 +114,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
