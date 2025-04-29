@@ -30,7 +30,7 @@ Inside the toolbox:
 - Tools for **handling certificates**.
 - Tools for **generating random numbers**.
 
-👉 **SSL/TLS** is just **one** set of tools inside this toolbox.
+Note: **SSL/TLS** is just **one** set of tools inside this toolbox.
 
 ---
 
@@ -45,7 +45,7 @@ At program start:
 - OpenSSL **has not loaded** the list of ciphers and hashes.
 - OpenSSL **has not set up** the memory needed for SSL connections.
 
-✅ `SSL_library_init()` prepares everything inside OpenSSL needed to **make secure SSL/TLS connections**.
+`SSL_library_init()` prepares everything inside OpenSSL needed to **make secure SSL/TLS connections**.
 
 ---
 
@@ -66,14 +66,14 @@ SSL/TLS needs **encryption**, **hashing**, and **key exchange** — all of these
 
 ## Ciphers and Digests
 
-### 🔥 What is a Cipher?
+### What is a Cipher?
 
 - A **cipher** is a **method to encrypt and decrypt data**.
 - It scrambles information so unauthorized users cannot read it.
 
 When you send secret data (like a password) across the internet, you **encrypt** it using a **cipher**.
 
-✅ Examples of ciphers:
+Examples of ciphers:
 
 | Cipher | Purpose |
 |:---|:---|
@@ -83,13 +83,13 @@ When you send secret data (like a password) across the internet, you **encrypt**
 
 ---
 
-### 🔥 What is a Digest?
+### What is a Digest?
 
 - A **digest** is a **summary (hash)** of data.
 - It’s **one-way**: you can create it, but you **cannot reverse** it.
 - It is used to **check if data has been tampered with**.
 
-✅ Examples of digests:
+Examples of digests:
 
 | Digest (Hash Function) | Purpose |
 |:---|:---|
@@ -99,7 +99,7 @@ When you send secret data (like a password) across the internet, you **encrypt**
 
 ---
 
-# ✏️ Quick Example
+# Quick Example
 
 Suppose you want to send a **secret message**:
 
@@ -110,7 +110,7 @@ Suppose you want to send a **secret message**:
 
 ---
 
-# 🔵 In SSL/TLS
+# In SSL/TLS
 
 - A **cipher** encrypts the data so nobody can see your communication.
 - A **digest** ensures the data wasn’t tampered with.
