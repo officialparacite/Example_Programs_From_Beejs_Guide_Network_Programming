@@ -1,25 +1,23 @@
 
 ---
 
-# System Calls Needed for a Simple Client
+HTTPS/TLS Client Connection Flow:
 
 - getaddrinfo()                       // DNS resolution
 - socket()                            // Create socket
 - connect()                           // TCP connect
-
-- SSL_library_init()                  // (Deprecated)
-- SSL_load_error_strings()            // (Deprecated)
-
 - SSL_CTX_new()                       // Create SSL context
-- SSL_CTX_set_verify()                // (Recommended) Enable certificate verification
+- SSL_CTX_set_min_proto_version()     // Set minimum TLS version (TLS 1.2+)
+- SSL_CTX_set_options()               // Set security options
 - SSL_CTX_set_default_verify_paths()  // Load system CA certs
-
+- SSL_CTX_set_verify()                // Enable certificate verification
 - SSL_new()                           // Create SSL object
+- SSL_set_tlsext_host_name()          // Set SNI (Server Name Indication)
+- SSL_set1_host()                     // Set hostname for verification (modern)
 - SSL_set_fd()                        // Attach socket to SSL object
 - SSL_connect()                       // TLS handshake
-
+- SSL_get_verify_result()             // Check certificate verification result
 - SSL_write() / SSL_read()            // Encrypted communication
-
 - SSL_shutdown()                      // Clean shutdown
 - SSL_free()                          // Free SSL object
 - SSL_CTX_free()                      // Free context
@@ -239,12 +237,21 @@ So, **`TLS_client_method()`** is just returning a pointer to that structure. Whe
 SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
 
 // 2. Set context to verify server certs
-SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 SSL_CTX_set_default_verify_paths(ctx);
 
 // 3. Create a new SSL connection object using the context
 SSL *ssl = SSL_new(ctx);
 
+```
+
+### if OpenSSL can't find certificates do this:
+
+```c
+// Specify the certificate file explicitly
+SSL_CTX_load_verify_locations(ctx, "/etc/ssl/certs/ca-certificates.crt", NULL);
+
+// OR specify a directory of certificates
+SSL_CTX_load_verify_locations(ctx, NULL, "/etc/ssl/certs/");
 ```
 ---
 
@@ -282,21 +289,40 @@ These are used to **verify** that the server’s certificate is legitimate.
 
 ---
 
-## So what do these lines do?
-
-### `SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);`
-Tells OpenSSL:
-> *"Check the server’s certificate. Don’t just trust anything."*
-
-Without this, OpenSSL will **not check** the certificate. You’re encrypting the connection, but **to potentially the wrong server** — which is useless security-wise.
-
----
-
 ### `SSL_CTX_set_default_verify_paths(ctx);`
 Tells OpenSSL:
 > *"Use the system’s built-in list of trusted certificate authorities to verify the server."*
 
 Without this, OpenSSL doesn't know **who to trust**, and **certificate verification fails** — even for real websites.
+
+---
+
+---
+
+### Hostname Verification
+
+1. **Setting SNI (Server Name Indication)**:
+   ```c
+   SSL_set_tlsext_host_name(ssl, hostname);
+   ```
+   This tells the server which hostname you're trying to connect to, so it can present the correct certificate if it hosts multiple domains.
+
+2. **Setting the hostname for verification**:
+   ```c
+   SSL_set1_host(ssl, hostname);
+   ```
+   This is the crucial step that tells OpenSSL to verify that the certificate presented by the server is valid for the hostname you're connecting to.
+
+3. **Checking the verification result**:
+   ```c
+   long verify_result = SSL_get_verify_result(ssl);
+   if (verify_result == X509_V_OK) {
+       // Certificate verification passed
+   }
+   ```
+   This checks that the certificate is valid, trusted, and matches the hostname you specified with `SSL_set1_host()`.
+
+In older versions of OpenSSL (before 1.0.2), hostname verification was not built into the library and had to be done manually by examining the certificate's Common Name (CN) and Subject Alternative Names (SAN) fields after the handshake.
 
 ---
 
